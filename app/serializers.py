@@ -22,7 +22,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class UploadedDocumentSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedDocument
-        fields = ['user', 'file', 'document_title']
+        fields = ['user','course_name', 'file', 'document_title']
     def get_file_path(self, obj):
         # Method to retrieve the file path
         return obj.file.path
@@ -37,6 +37,7 @@ class CoursesSerializer(serializers.ModelSerializer):
     class Meta:
         model = Course
         fields = ['university_name','course_name']
+
 
 
 

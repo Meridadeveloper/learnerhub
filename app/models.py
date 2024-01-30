@@ -61,11 +61,9 @@ class Course(models.Model):
     university_name = models.ForeignKey(Universitie,on_delete=models.CASCADE)
 
     course_name = models.CharField(max_length=100)
-
-  
     def __str__(self):
         un = self.university_name.university_name
-        return self.course_name +' ' +   un 
+        return self.course_name +' ' +  un 
 
 class UploadedDocument(models.Model):
     user = models.ForeignKey(UserProfile, on_delete=models.CASCADE)

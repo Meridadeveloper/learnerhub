@@ -153,6 +153,8 @@ class LoginAPIView(APIView):
         print("username", username)
         print("password", password)
         # user = authenticate(username=username, password=password)
+
+        
         try:
             # user = User.objects.get(username=username)
             user = authenticate(username=username, password=password)
@@ -165,13 +167,37 @@ class LoginAPIView(APIView):
         except Exception as e:
             print(e)
             user = None
+        
+
 
         if user and user.is_active:
             login(request, user)
             UO = UserProfile.objects.get(user=user)
+            university  = UO.university
+            print(university)
             user_studies = Studies.objects.filter(user= UO)
             # print(user_studies)
             # print(type(user_studies))
+            un=Universitie.objects.get(university_name=university)
+            co = Course.objects.filter(university_name=un)
+#             CO = Course.objects.all()  
+#             doc = UploadedDocument.objects.all() 
+#             for document in doc:
+# ...             for course in Courses:
+# ...                 if document.course_name == course.course_name:
+# ...                     print(document.file)
+            print(co)
+            c = 0
+            for course in co:
+                c+=1
+            print("the courses are ",c)
+            students = UserProfile.objects.filter(university=university)
+            sc=0
+            for student in students:
+                sc +=1
+
+            print(sc)
+
             if not user_studies.exists():
                 print("no user studies found")
             else:
@@ -180,6 +206,7 @@ class LoginAPIView(APIView):
                     # print(emailgun)
 
             user_data = {
+            'uid':UO.uid,
             'username': UO.user.username,
             'email': UO.user.email,
             'title':UO.title,
@@ -187,8 +214,10 @@ class LoginAPIView(APIView):
             'lastname':UO.last_name,
             'firstname':UO.first_name,
             'country':UO.country,
-            'university':UO.university,
-            'city':UO.city
+            'university':university,
+            'city':UO.city,
+            'courses_count':c,
+            's_c':sc
             # Add other user details as needed
         }
             print(user_data)
@@ -243,10 +272,9 @@ class DocumentUploadAPIView(APIView):
         for pdf in documents :
             pdf_file  =  pdf.file.read()
             base64_pdf = base64.b64encode(pdf_file).decode('utf-8')
-            pdf_data = {'id':pdf.id,'base64_data':base64_pdf,'pdf_title':pdf.document_title}
-            print(pdf_data['pdf_title'])
+            pdf_data = {'id':pdf.id,'base64_data':base64_pdf,'pdf_title':pdf.document_title,'course_name':pdf.course_name}
             pdfs.append(pdf_data)
-            
+        
         return JsonResponse({'pdfs':pdfs}, status=status.HTTP_200_OK)
 
     # def post(self, request,username):
@@ -281,7 +309,13 @@ class DocumentUploadAPIView(APIView):
         print("data is  ",data)
        
         file = request.data.get('file')
+        course = request.data.get('course')
+
+        
+
         file_name = file.name
+        print(file_name)
+
         document_title = request.data.get('title')
         
         user = User.objects.get(username=username)
@@ -293,14 +327,28 @@ class DocumentUploadAPIView(APIView):
             img.save(pdf_file_path, "PDF", resolution=100.0)
             
             # Open the generated PDF file
-            with open(pdf_file_path, 'rb') as pdf_file:
+            with open(pdf_file_path, 'rb') as pdf_file: 
                 # Create a BytesIO object to store the file content
                 pdf_content = pdf_file.read()
-                print(pdf_content)
+                # print(pdf_content)
                 # Create a Django File object from the BytesIO object
                 django_file = ContentFile(pdf_content, name=f"{os.path.splitext(file_name)[0]}.pdf")
+                print("---------------------------")
+                print("the django file is ",django_file)
+                print("---------------------------")
+                print("type of django_file is ",type(django_file))
+                UO = User.objects.get(username=username)
+                UPO =UserProfile.objects.get(user=UO)
+                fn = file_name.
+                document_exists = UploadedDocument.objects.filter(user=UPO,document_title=file_name).exists()
+                print(document_exists,file_name,"is this i want ")
+                if document_exists:
+                    print("file already present")
+
+                    return Response({"message":"Document already present"})
+
                 # Pass the Django File object to the serializer
-                serializer = UploadedDocumentSerializer(data={'user': user_profile.id, 'file': django_file, 'document_title': os.path.splitext(file_name)[0]})
+                serializer = UploadedDocumentSerializer(data={'user': user_profile.id,'course_name':course, 'file': django_file, 'document_title': os.path.splitext(file_name)[0]})
                 print(serializer)
                 print("out side valid")
                 if serializer.is_valid():
@@ -315,7 +363,15 @@ class DocumentUploadAPIView(APIView):
                 else:
                     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         elif file.name.lower().endswith(('.pdf')):
-            serializer = UploadedDocumentSerializer(data={'user': user_profile.id, 'file': file, 'document_title': file_name  })
+            UO = User.objects.get(username=username)
+            UPO =UserProfile.objects.get(user=UO)
+            DO = UploadedDocument.objects.filter(user=UPO)
+            document_exists = UploadedDocument.objects.filter(user=UPO,document_title=file_name).exists()
+            if document_exists:
+                print("file already present")
+                return Response({"message":"Document already present"})
+
+            serializer = UploadedDocumentSerializer(data={'user': user_profile.id, 'course_name':course,'file': file, 'document_title': file_name  })
             print("the serializer is: ", serializer)
             if serializer.is_valid():
                 serializer.save()
@@ -589,7 +645,7 @@ class Universities(APIView):
         universities = []
         for i in UC:
             print(i.id,i.university_name) 
-            universities.append([i.university_name,i.id]) 
+            universities.append([i.university_name]) 
         print("universities is ",universities)
         return Response(universities)
     def post(self,request):
@@ -724,9 +780,13 @@ class SearchView(APIView):
                     
                     # print(pdf_data)
         # print(pdf_datas)
+        
+        print("length os pdf_datas is :", len(pdf_datas))
+        if len(pdf_datas)>0:
 
-
-        return JsonResponse({'pdf_datas':pdf_datas})
+            return JsonResponse({'pdf_datas':pdf_datas})
+        else:
+            return JsonResponse({"message":"data not found"})
         
         if results:
             response_data = {"message": "String found in the following PDF files:", "results": results}
@@ -755,10 +815,6 @@ class Search(APIView):
 
 
         return JsonResponse({'base64_data':base64_pdf},status = 200)
-        
-    
-        
-
 
 
 
